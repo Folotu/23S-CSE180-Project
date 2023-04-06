@@ -24,6 +24,7 @@ find_package(rclcpp REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(tf2_msgs REQUIRED)
 
 # Create an executable for the map subscriber
 add_executable(map_subscriber src/map_subscriber.cpp)
@@ -37,11 +38,15 @@ ament_target_dependencies(scan_subscriber rclcpp sensor_msgs)
 add_executable(pose_subscriber src/pose_subscriber.cpp)
 ament_target_dependencies(pose_subscriber rclcpp geometry_msgs)
 
+add_executable(tfstatic_subscriber src/tfstatic_subscriber.cpp)
+ament_target_dependencies(tfstatic_subscriber rclcpp tf2_msgs)
+
 # Install the executables
 install(TARGETS
   map_subscriber
   scan_subscriber
   pose_subscriber
+  tfstatic_subscriber
   DESTINATION lib/${PROJECT_NAME}
 )
 

@@ -17,7 +17,7 @@ int main(int argc, char **argv)
     auto node = rclcpp::Node::make_shared("map_subscriber");
 
     auto sub = node->create_subscription<nav_msgs::msg::OccupancyGrid>(
-        "/map", 10, mapSubscriber);
+        "/map", rclcpp::QoS(rclcpp::KeepLast(10)), mapSubscriber);
 
     rclcpp::spin(node);
 
