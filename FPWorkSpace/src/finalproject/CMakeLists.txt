@@ -41,12 +41,16 @@ ament_target_dependencies(pose_subscriber rclcpp geometry_msgs)
 add_executable(tfstatic_subscriber src/tfstatic_subscriber.cpp)
 ament_target_dependencies(tfstatic_subscriber rclcpp tf2_msgs)
 
+add_executable(findExtraPost src/findExtraPost.cpp)
+ament_target_dependencies(findExtraPost rclcpp nav_msgs geometry_msgs)
+
 # Install the executables
 install(TARGETS
   map_subscriber
   scan_subscriber
   pose_subscriber
   tfstatic_subscriber
+  findExtraPost
   DESTINATION lib/${PROJECT_NAME}
 )
 
