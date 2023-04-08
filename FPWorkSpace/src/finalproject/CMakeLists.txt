@@ -26,6 +26,31 @@ find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(tf2_msgs REQUIRED)
 
+find_package(nav2_msgs REQUIRED)
+find_package(rclcpp_action REQUIRED)
+find_package(lifecycle_msgs REQUIRED)
+
+
+add_library(navigator src/navigation.cpp)
+add_executable(myTestNavigator src/myTestNavigator.cpp src/navigation.cpp)
+# add_executable(testpackage src/testpackage.cpp src/navigation.cpp)
+
+target_include_directories(navigator
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>)
+
+target_include_directories(myTestNavigator
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>)
+
+ament_target_dependencies(navigator rclcpp geometry_msgs lifecycle_msgs rclcpp_action nav2_msgs)
+ament_export_targets(navigatorlib HAS_LIBRARY_TARGET)
+ament_export_dependencies(rclcpp geometry_msgs lifecycle_msgs rclcpp_action nav2_msgs)
+ament_target_dependencies(myTestNavigator rclcpp geometry_msgs lifecycle_msgs rclcpp_action nav2_msgs)
+
+
 # Create an executable for the map subscriber
 add_executable(map_subscriber src/map_subscriber.cpp)
 ament_target_dependencies(map_subscriber rclcpp nav_msgs)
@@ -44,6 +69,24 @@ ament_target_dependencies(tfstatic_subscriber rclcpp tf2_msgs)
 add_executable(findExtraPost src/findExtraPost.cpp)
 ament_target_dependencies(findExtraPost rclcpp nav_msgs geometry_msgs)
 
+
+install(
+  DIRECTORY include/
+  DESTINATION include
+)
+
+install(
+  TARGETS navigator
+  EXPORT navigatorlib
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib
+  RUNTIME DESTINATION bin
+  INCLUDES DESTINATION include
+  )
+
+install(TARGETS myTestNavigator DESTINATION lib/${PROJECT_NAME})
+# install(TARGETS testpackage DESTINATION lib/${PROJECT_NAME})
+
 # Install the executables
 install(TARGETS
   map_subscriber
@@ -55,10 +98,10 @@ install(TARGETS
 )
 
 # Install the launch files
-install(DIRECTORY
-  launch
-  DESTINATION share/${PROJECT_NAME}
-)
+# install(DIRECTORY
+#   launch
+#   DESTINATION share/${PROJECT_NAME}
+# )
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
