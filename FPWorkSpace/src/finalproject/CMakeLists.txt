@@ -30,6 +30,10 @@ find_package(nav2_msgs REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(lifecycle_msgs REQUIRED)
 
+find_package(tf2_ros REQUIRED)
+find_package(tf2_sensor_msgs REQUIRED)
+find_package(laser_geometry REQUIRED)
+
 
 add_library(navigator src/navigation.cpp)
 add_executable(myTestNavigator src/myTestNavigator.cpp src/navigation.cpp)
@@ -54,6 +58,11 @@ ament_target_dependencies(myTestNavigator rclcpp geometry_msgs lifecycle_msgs rc
 # Create an executable for the map subscriber
 add_executable(map_subscriber src/map_subscriber.cpp)
 ament_target_dependencies(map_subscriber rclcpp nav_msgs)
+
+# Create map_comparison_node executable
+add_executable(gpt src/gpt.cpp)
+target_link_libraries(gpt ${tf2_sensor_msgs_LIBRARIES})
+ament_target_dependencies(gpt rclcpp sensor_msgs tf2_msgs nav_msgs tf2_ros tf2_sensor_msgs laser_geometry)
 
 # Create an executable for the scan subscriber
 add_executable(scan_subscriber src/scan_subscriber.cpp)
@@ -94,6 +103,7 @@ install(TARGETS
   pose_subscriber
   tfstatic_subscriber
   findExtraPost
+  gpt
   DESTINATION lib/${PROJECT_NAME}
 )
 
