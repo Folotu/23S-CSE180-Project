@@ -1,8 +1,10 @@
+#include <rclcpp/rclcpp.hpp>
 #include <iostream>
+#include <tf2_sensor_msgs/tf2_sensor_msgs.h>
 #include <laser_geometry/laser_geometry.hpp>
 #include <memory>
 #include <nav_msgs/msg/occupancy_grid.hpp>
-#include <rclcpp/rclcpp.hpp>
+
 
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
@@ -14,7 +16,7 @@ class MapComparisonNode : public rclcpp::Node {
 public:
   MapComparisonNode()
       : Node("map_comparison_node"), tf_buffer_(this->get_clock()),
-        tf_listener_(tf_buffer_) {
+        tf_listener_(tf_buffer_) , projector_(){
     scan_sub_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
         "/scan", 10,
         std::bind(&MapComparisonNode::scan_callback, this,
@@ -23,6 +25,8 @@ public:
         "/map", 10,
         std::bind(&MapComparisonNode::map_callback, this,
                   std::placeholders::_1));
+    
+
   }
 
 private:
@@ -117,7 +121,6 @@ private:
   laser_geometry::LaserProjection projector_;
 };
 
-#include "rclcpp/rclcpp.hpp"
 // #include "map_comparison_node.hpp"
 
 int main(int argc, char *argv[]) {
