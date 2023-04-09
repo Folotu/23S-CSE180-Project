@@ -1,11 +1,11 @@
-#include <rclcpp/rclcpp.hpp>
 #include <iostream>
-#include <tf2_sensor_msgs/tf2_sensor_msgs.h>
 #include <laser_geometry/laser_geometry.hpp>
 #include <memory>
 #include <nav_msgs/msg/occupancy_grid.hpp>
+#include <rclcpp/rclcpp.hpp>
+#include <tf2_sensor_msgs/tf2_sensor_msgs.h>
 
-
+#include <geometry_msgs/msg/pose_stamped.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <sensor_msgs/point_cloud2_iterator.hpp>
@@ -16,7 +16,7 @@ class MapComparisonNode : public rclcpp::Node {
 public:
   MapComparisonNode()
       : Node("map_comparison_node"), tf_buffer_(this->get_clock()),
-        tf_listener_(tf_buffer_) , projector_(){
+        tf_listener_(tf_buffer_), projector_() {
     scan_sub_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
         "/scan", 10,
         std::bind(&MapComparisonNode::scan_callback, this,
@@ -25,8 +25,6 @@ public:
         "/map", 10,
         std::bind(&MapComparisonNode::map_callback, this,
                   std::placeholders::_1));
-    
-
   }
 
 private:
@@ -42,6 +40,22 @@ private:
     try {
       cloud_in_map_frame_ = tf_buffer_.transform(
           cloud_msg, map_.header.frame_id, tf2::durationFromSec(0.1));
+
+      // Store the robot's position in the map frame
+      auto transform_stamped = tf_buffer_.lookupTransform(
+          map_.header.frame_id, scan_msg->header.frame_id,
+          scan_msg->header.stamp, tf2::durationFromSec(0.1));
+
+      robot_pose_in_map_frame_.header = transform_stamped.header;
+      robot_pose_in_map_frame_.pose.position.x =
+          transform_stamped.transform.translation.x;
+      robot_pose_in_map_frame_.pose.position.y =
+          transform_stamped.transform.translation.y;
+      robot_pose_in_map_frame_.pose.position.z =
+          transform_stamped.transform.translation.z;
+      robot_pose_in_map_frame_.pose.orientation =
+          transform_stamped.transform.rotation;
+          
       compare_map_and_pointcloud();
     } catch (tf2::TransformException &ex) {
       RCLCPP_WARN(
@@ -103,14 +117,27 @@ private:
         static_cast<double>(num_matching_points) / cloud_in_map_frame_.width *
         100.0;
 
-    RCLCPP_INFO(this->get_logger(), "Matching points: %d/%d (%.2f%%)",
-                num_matching_points, cloud_in_map_frame_.width,
-                matching_points_percentage);
+    // Check if the percentage is below the threshold
+    double threshold = 50.0; // Set this to the desired threshold value
+    if (matching_points_percentage < threshold) {
+      RCLCPP_WARN(this->get_logger(),
+                  "Low matching points percentage detected (%.2f%%) at "
+                  "position: (x: %.2f, y: %.2f, z: %.2f)",
+                  matching_points_percentage,
+                  robot_pose_in_map_frame_.pose.position.x,
+                  robot_pose_in_map_frame_.pose.position.y,
+                  robot_pose_in_map_frame_.pose.position.z);
+    } else {
+      RCLCPP_INFO(this->get_logger(), "Matching points: %d/%d (%.2f%%)",
+                  num_matching_points, cloud_in_map_frame_.width,
+                  matching_points_percentage);
+    }
   }
 
   rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr scan_sub_;
   rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr map_sub_;
   rclcpp::Subscription<tf2_msgs::msg::TFMessage>::SharedPtr tf_static_sub_;
+  geometry_msgs::msg::PoseStamped robot_pose_in_map_frame_;
 
   bool map_received_ = false;
   nav_msgs::msg::OccupancyGrid map_;

@@ -19,6 +19,7 @@ find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_sensor_msgs REQUIRED)
 find_package(laser_geometry REQUIRED)
+find_package(geometry_msgs REQUIRED)
 # Add other dependencies here, e.g. <your_dependency>
 
 # Create the gpt executable
@@ -31,6 +32,7 @@ ament_target_dependencies(gpt
   tf2_ros
   tf2_sensor_msgs
   laser_geometry
+  geometry_msgs
   # Add other dependencies here, e.g. <your_dependency>
 )
 
