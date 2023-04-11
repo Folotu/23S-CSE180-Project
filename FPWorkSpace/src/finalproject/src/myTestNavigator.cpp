@@ -4,6 +4,11 @@
 #include <rclcpp/rclcpp.hpp>
 #include <vector>
 
+#include <stdlib.h> 
+#include <stdio.h> 
+#include <linux/limits.h>
+#include <fstream>
+
 std::pair<int, int> ConvertLocalToGlobalCostmapCoordinates(int i, int j,
                                                            const std::shared_ptr<nav2_msgs::msg::Costmap>& local_costmap,
                                                            const std::shared_ptr<nav2_msgs::msg::Costmap>& global_costmap) {
@@ -138,6 +143,14 @@ int main(int argc, char **argv)
     //   *goal_pos = waypoint;
     //   navigator.GoToPose(goal_pos);
   }
+  char resolved_path[PATH_MAX]; 
+  realpath("../", resolved_path); 
+// Create a relative path to output to
+  const std::string relative_path = "/src/finalproject/src/txtFolders/OutputCOSTMAPTYPE.txt";
+
+  std::string str(resolved_path);
+
+  std::ofstream outfile(str+relative_path);
   
   for (std::size_t i = 0; i < waypoints.size(); ++i) 
   {
@@ -148,29 +161,40 @@ int main(int argc, char **argv)
     
        while (!navigator.IsTaskComplete()) 
        {
+        auto globalcostmap = navigator.GetGlobalCostmap();
+        for (unsigned int i = 0; i < globalcostmap->metadata.size_x; ++i) 
+        {
+          for (unsigned int j = 0; j < globalcostmap->metadata.size_y; ++j) 
+          {
+            outfile << static_cast<int>(globalcostmap->data[i * globalcostmap->metadata.size_y + j])
+                  << " ";
+          }
+            outfile << std::endl;
+        }
+
+
     // busy waiting for the task to be completed
-    // std::pair<int, int> inconsistent_cell = CompareCostmaps(navigator); 
-      //   std::vector<std::pair<int, int>> inconsistent_cells = CompareCostmaps(navigator);
+        // std::vector<std::pair<int, int>> inconsistent_cells = CompareCostmaps(navigator);
 
-      //   if (inconsistent_cells.empty()) {
-      //   // Vector is empty; there are no inconsistencies
-      //   continue;
-      //   } else {
-      //       // Vector is not empty; there are inconsistencies
-      //       auto global_costmap = navigator.GetGlobalCostmap();
-      //       geometry_msgs::msg::PoseStamped inconsistent_pose;
-      //       for (const auto& inconsistent_cell : inconsistent_cells) 
-      //       {
-      //         inconsistent_pose = GlobalCostmapIndicesToPose(inconsistent_cell.first, inconsistent_cell.second, global_costmap);
+        // if (inconsistent_cells.empty()) {
+        // // Vector is empty; there are no inconsistencies
+        // continue;
+        // } else {
+        //     // Vector is not empty; there are inconsistencies
+        //     auto global_costmap = navigator.GetGlobalCostmap();
+        //     geometry_msgs::msg::PoseStamped inconsistent_pose;
+        //     for (const auto& inconsistent_cell : inconsistent_cells) 
+        //     {
+        //       inconsistent_pose = GlobalCostmapIndicesToPose(inconsistent_cell.first, inconsistent_cell.second, global_costmap);
 
-      //       }
-      //       RCLCPP_ERROR(navigator.get_logger(), "Unknown Obstacle at position: (x: %.2f, y: %.2f, z: %.2f)",
-      //                                           inconsistent_pose.pose.position.x,
-      //                                           inconsistent_pose.pose.position.y,
-      //                                           inconsistent_pose.pose.position.z);
-      //       break;
+        //     }
+        //     RCLCPP_ERROR(navigator.get_logger(), "Unknown Obstacle at position: (x: %.2f, y: %.2f, z: %.2f)",
+        //                                         inconsistent_pose.pose.position.x,
+        //                                         inconsistent_pose.pose.position.y,
+        //                                         inconsistent_pose.pose.position.z);
+        //     break;
 
-      //   }           
+        // }           
         
       }
   }
