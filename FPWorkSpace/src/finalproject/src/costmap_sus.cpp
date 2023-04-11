@@ -2,7 +2,9 @@
 #include <fstream>
 #include <nav_msgs/msg/occupancy_grid.hpp>
 #include <rclcpp/rclcpp.hpp>
-
+#include <stdlib.h> 
+#include <stdio.h> 
+#include <linux/limits.h>
 std::chrono::system_clock::time_point last_update_time;
 
 void mapSubscriber(const nav_msgs::msg::OccupancyGrid::SharedPtr msg,
@@ -32,11 +34,26 @@ void mapSubscriber(const nav_msgs::msg::OccupancyGrid::SharedPtr msg,
 
 int main(int argc, char **argv) {
   rclcpp::init(argc, argv);
-  auto node = rclcpp::Node::make_shared("map_subscriber");
 
-  // Open the output file
-  std::ofstream outfile("/home/user/FinalProjFold/FPWorkSpace/src/finalproject/"
-                        "src/txtFolders/GlobalCostMapOutput.txt");
+  auto node = rclcpp::Node::make_shared("map_subscriber");
+  
+  char resolved_path[PATH_MAX]; 
+  realpath("../", resolved_path); 
+// Create a relative path to output to
+  const std::string relative_path = "/src/finalproject/src/txtFolders/GlobalCostMapOutput.txt";
+
+  std::string str(resolved_path);
+
+  std::ofstream outfile(str+relative_path);
+
+   // Check if the file was opened successfully
+    if (!outfile.is_open()) {
+        std::cerr << "Failed to open output file." << std::endl;
+        return 1;
+    }
+
+
+  outfile << " weight fr height fr\n";
 
   auto sub = node->create_subscription<nav_msgs::msg::OccupancyGrid>(
       "/global_costmap/costmap", rclcpp::QoS(rclcpp::KeepLast(10)),

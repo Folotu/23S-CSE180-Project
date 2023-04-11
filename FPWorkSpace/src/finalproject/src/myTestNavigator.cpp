@@ -70,9 +70,8 @@ int main(int argc, char **argv)
 {
 
   rclcpp::init(argc, argv); // initialize ROS
-  Navigator navigator(true,
-                      false); // create node with debug info but not verbose
-
+  Navigator navigator(true, false); // create node with debug info but not verbose
+  
   std::vector<geometry_msgs::msg::Pose> waypoints;
   waypoints.reserve(8);
 
@@ -140,7 +139,8 @@ int main(int argc, char **argv)
     //   navigator.GoToPose(goal_pos);
   }
   
-  for (std::size_t i = 0; i < waypoints.size(); ++i) {
+  for (std::size_t i = 0; i < waypoints.size(); ++i) 
+  {
     geometry_msgs::msg::Pose::SharedPtr goal_pos = 
         std::make_shared<geometry_msgs::msg::Pose>();
     *goal_pos = waypoints[i];
@@ -150,30 +150,31 @@ int main(int argc, char **argv)
        {
     // busy waiting for the task to be completed
     // std::pair<int, int> inconsistent_cell = CompareCostmaps(navigator); 
-        std::vector<std::pair<int, int>> inconsistent_cells = CompareCostmaps(navigator);
+      //   std::vector<std::pair<int, int>> inconsistent_cells = CompareCostmaps(navigator);
 
-        if (inconsistent_cells.empty()) {
-        // Vector is empty; there are no inconsistencies
-        continue;
-        } else {
-            // Vector is not empty; there are inconsistencies
-            auto global_costmap = navigator.GetGlobalCostmap();
-            geometry_msgs::msg::PoseStamped inconsistent_pose;
-            for (const auto& inconsistent_cell : inconsistent_cells) 
-            {
-              inconsistent_pose = GlobalCostmapIndicesToPose(inconsistent_cell.first, inconsistent_cell.second, global_costmap);
+      //   if (inconsistent_cells.empty()) {
+      //   // Vector is empty; there are no inconsistencies
+      //   continue;
+      //   } else {
+      //       // Vector is not empty; there are inconsistencies
+      //       auto global_costmap = navigator.GetGlobalCostmap();
+      //       geometry_msgs::msg::PoseStamped inconsistent_pose;
+      //       for (const auto& inconsistent_cell : inconsistent_cells) 
+      //       {
+      //         inconsistent_pose = GlobalCostmapIndicesToPose(inconsistent_cell.first, inconsistent_cell.second, global_costmap);
 
-            }
-            RCLCPP_ERROR(navigator.get_logger(), "Unknown Obstacle at position: (x: %.2f, y: %.2f, z: %.2f)",
-                                                inconsistent_pose.pose.position.x,
-                                                inconsistent_pose.pose.position.y,
-                                                inconsistent_pose.pose.position.z);
-            break;
+      //       }
+      //       RCLCPP_ERROR(navigator.get_logger(), "Unknown Obstacle at position: (x: %.2f, y: %.2f, z: %.2f)",
+      //                                           inconsistent_pose.pose.position.x,
+      //                                           inconsistent_pose.pose.position.y,
+      //                                           inconsistent_pose.pose.position.z);
+      //       break;
 
-        }           
+      //   }           
         
       }
   }
+  
       
 
   // if (navigator.FollowWaypoints(waypoints)) {
@@ -188,4 +189,5 @@ int main(int argc, char **argv)
 
   rclcpp::shutdown(); // shutdown ROS
   return 0;
+
 }
