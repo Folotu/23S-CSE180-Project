@@ -15,6 +15,8 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(nav2_msgs REQUIRED)
+find_package(map_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_sensor_msgs REQUIRED)
@@ -24,6 +26,19 @@ find_package(geometry_msgs REQUIRED)
 
 # Create the gpt executable
 add_executable(gpt src/gpt.cpp)
+add_executable(costmap_sus src/costmap_sus)
+
+ament_target_dependencies(costmap_sus
+  rclcpp
+  nav_msgs
+  nav2_msgs
+  map_msgs
+  laser_geometry
+  geometry_msgs
+  # Add other dependencies here, e.g. <your_dependency>
+)
+
+
 ament_target_dependencies(gpt
   rclcpp
   sensor_msgs
@@ -40,4 +55,8 @@ install(TARGETS
   gpt
   DESTINATION lib/${PROJECT_NAME})
 
+
+install(TARGETS
+  costmap_sus
+  DESTINATION lib/${PROJECT_NAME})
 ament_package()
