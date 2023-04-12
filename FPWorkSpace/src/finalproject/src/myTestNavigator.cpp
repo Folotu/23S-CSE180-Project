@@ -3,73 +3,127 @@
 #include <finalproject/navigation.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <vector>
+#include <nav_msgs/msg/occupancy_grid.hpp>
 
 #include <stdlib.h> 
 #include <stdio.h> 
 #include <linux/limits.h>
 #include <fstream>
 
-std::pair<int, int> ConvertLocalToGlobalCostmapCoordinates(int i, int j,
-                                                           const std::shared_ptr<nav2_msgs::msg::Costmap>& local_costmap,
-                                                           const std::shared_ptr<nav2_msgs::msg::Costmap>& global_costmap) {
-  double local_x = i * local_costmap->metadata.resolution + local_costmap->metadata.origin.position.x;
-  double local_y = j * local_costmap->metadata.resolution + local_costmap->metadata.origin.position.y;
+std::string Getrealpath()
+{
+  char resolved_path[PATH_MAX]; 
+  realpath("../", resolved_path); 
+  return resolved_path;
+}
+  
+// Create a relative path to output to
+  const std::string relative_path = "/src/finalproject/src/txtFolders/GlobalCostMapOutput.txt";
 
-  int global_i = static_cast<int>((local_x - global_costmap->metadata.origin.position.x) / global_costmap->metadata.resolution);
-  int global_j = static_cast<int>((local_y - global_costmap->metadata.origin.position.y) / global_costmap->metadata.resolution);
+  std::string str(Getrealpath());
 
-  return std::make_pair(global_i, global_j);
+  std::ofstream outfile(str+relative_path);
+
+nav_msgs::msg::OccupancyGrid::SharedPtr firstGlobalCostMapMsg;
+std::chrono::system_clock::time_point last_update_time;
+std::vector<std::pair<int, int>> CompareCostmaps(const nav_msgs::msg::OccupancyGrid::SharedPtr& latest_costmap, const nav_msgs::msg::OccupancyGrid::SharedPtr& first_costmap, Navigator& navy) ;
+geometry_msgs::msg::PoseStamped GlobalCostmapIndicesToPose(int row, int col, const nav_msgs::msg::OccupancyGrid::SharedPtr& costmap);
+
+void mapSubscriber(const nav_msgs::msg::OccupancyGrid::SharedPtr msg, Navigator& navy, std::ofstream &outfile) {
+
+    if (!firstGlobalCostMapMsg) {
+        firstGlobalCostMapMsg = msg;
+        
+    }
+    else
+    {  
+    // Check if the map is updated
+      auto current_time = std::chrono::system_clock::now();
+      auto time_since_last_update = current_time - last_update_time;
+      const auto update_threshold = std::chrono::seconds(5); // adjust as needed
+    
+      if (time_since_last_update > update_threshold) {
+        last_update_time = current_time;
+        auto inconsistentCells = CompareCostmaps(msg, firstGlobalCostMapMsg, navy);
+
+        for (const auto& cell : inconsistentCells) {
+          auto pose_stamped = GlobalCostmapIndicesToPose(cell.first, cell.second, msg);
+          RCLCPP_WARN(navy.get_logger(), "Found inconsistency at position (x: %f, y: %f)", pose_stamped.pose.position.x, pose_stamped.pose.position.y);
+
+        }
+
+        // Print the map data row by row
+        outfile << msg->info.height << " height fr\n";
+        outfile << msg->info.width << " width fr\n";
+        outfile << msg->info.resolution << " resolution fr\n";
+        for (unsigned int row = 0; row < msg->info.height; row++) {
+          for (unsigned int col = 0; col < msg->info.width; col++) {
+            outfile << static_cast<int>(msg->data[row * msg->info.width + col])
+                    << " ";
+          }
+          outfile << std::endl;
+        }
+      }
+                
+    }
 }
 
-std::vector<std::pair<int, int>> CompareCostmaps(Navigator& navy) {
-  auto local_costmap = navy.GetLocalCostmap();
-  auto global_costmap = navy.GetGlobalCostmap();
 
+std::vector<std::pair<int, int>> CompareCostmaps(const nav_msgs::msg::OccupancyGrid::SharedPtr& latest_costmap, const nav_msgs::msg::OccupancyGrid::SharedPtr& first_costmap, Navigator& navy) {
   std::vector<std::pair<int, int>> inconsistent_cells;
 
-  if (!local_costmap || !global_costmap) {
+  if (!first_costmap || !latest_costmap) {
     RCLCPP_WARN(navy.get_logger(), "Failed to compare costmaps: Local or global costmap is missing");
     return inconsistent_cells;
   }
 
-  for (unsigned int i = 0; i < local_costmap->metadata.size_x; ++i) {
-    for (unsigned int j = 0; j < local_costmap->metadata.size_y; ++j) {
-      std::pair<int, int> global_coord = ConvertLocalToGlobalCostmapCoordinates(i, j, local_costmap, global_costmap);
-      if (global_coord.first < 0 || global_coord.second < 0 || 
-          global_coord.first >= global_costmap->metadata.size_x || 
-          global_coord.second >= global_costmap->metadata.size_y) {
-        continue;
-      }
+  // Check if both costmaps have the same dimensions
+  if (first_costmap->info.width != latest_costmap->info.width || first_costmap->info.height != latest_costmap->info.height) {
+    RCLCPP_WARN(navy.get_logger(), "Failed to compare costmaps: The costmaps have different dimensions");
+    return inconsistent_cells;
+  }
 
-      int local_cost = static_cast<int>(local_costmap->data[i + j * local_costmap->metadata.size_x]);
-      int global_cost = static_cast<int>(global_costmap->data[global_coord.first + global_coord.second * global_costmap->metadata.size_x]);
+  // Define a threshold for the absolute difference between cell values
+  int threshold = 45; // Adjust this value based on your requirements
 
-      if (local_cost != global_cost) {
-        inconsistent_cells.push_back(global_coord);
+  for (unsigned int row = 0; row < latest_costmap->info.height; ++row) {
+      for (unsigned int col = 0; col < latest_costmap->info.width; ++col) {
+        int index = row * latest_costmap->info.width + col;
+
+        // Ignore changes to old values that were -1
+        if (static_cast<int>(first_costmap->data[index]) == -1 || static_cast<int>(latest_costmap->data[index])== -1) {
+          continue;
+        }
+
+        int value_diff = std::abs(static_cast<int>(latest_costmap->data[index]) - static_cast<int>(first_costmap->data[index]));
+
+        if (value_diff > threshold) {
+          inconsistent_cells.emplace_back(row, col);
+          outfile << "New: " <<  static_cast<int>(latest_costmap->data[index]) << ", Old: " << static_cast<int>(first_costmap->data[index]) << "\n";
+
+          // Stop processing if we have found 5 or more inconsistent cells
+          if (inconsistent_cells.size() >= 5) {
+            return inconsistent_cells;
+          }
+        }
       }
     }
-  }
 
   return inconsistent_cells;
 }
 
-
-
-geometry_msgs::msg::PoseStamped GlobalCostmapIndicesToPose(int i, int j, const nav2_msgs::msg::Costmap::SharedPtr& global_costmap) {
+geometry_msgs::msg::PoseStamped GlobalCostmapIndicesToPose(int row, int col, const nav_msgs::msg::OccupancyGrid::SharedPtr& costmap) {
   geometry_msgs::msg::PoseStamped pose_stamped;
-  pose_stamped.header.frame_id = global_costmap->header.frame_id;
-  pose_stamped.header.stamp = global_costmap->header.stamp;
+  pose_stamped.header.frame_id = costmap->header.frame_id;
+  pose_stamped.header.stamp = costmap->header.stamp;
   
-  double resolution = global_costmap->metadata.resolution;
-  pose_stamped.pose.position.x = i * resolution + global_costmap->metadata.origin.position.x + resolution / 2.0;
-  pose_stamped.pose.position.y = j * resolution + global_costmap->metadata.origin.position.y + resolution / 2.0;
+  double resolution = costmap->info.resolution;
+  pose_stamped.pose.position.x = col * resolution + costmap->info.origin.position.x + resolution / 2.0;
+  pose_stamped.pose.position.y = row * resolution + costmap->info.origin.position.y + resolution / 2.0;
   pose_stamped.pose.orientation.w = 1.0; // No orientation information for individual cells
 
   return pose_stamped;
 }
-
-
-
 
 int main(int argc, char **argv) 
 {
@@ -124,94 +178,56 @@ int main(int argc, char **argv)
   waypoints.push_back(pose);
 
   // first: it is mandatory to initialize the pose of the robot
-  geometry_msgs::msg::Pose::SharedPtr init =
-      std::make_shared<geometry_msgs::msg::Pose>();
+  geometry_msgs::msg::Pose::SharedPtr init = std::make_shared<geometry_msgs::msg::Pose>();
   init->position.x = -2;
   init->position.y = -0.5;
   init->orientation.w = 1;
   navigator.SetInitialPose(init);
   // wait for navigation stack to become operational
   navigator.WaitUntilNav2Active();
+  
+  auto node = rclcpp::Node::make_shared("map_subscriber");
+  
+//   char resolved_path[PATH_MAX]; 
+//   realpath("../", resolved_path); 
+// // Create a relative path to output to
+//   const std::string relative_path = "/src/finalproject/src/txtFolders/GlobalCostMapOutput.txt";
+
+//   std::string str(resolved_path);
+
+//   std::ofstream outfile(str+relative_path);
+
+  auto sub = node->create_subscription<nav_msgs::msg::OccupancyGrid>(
+  "/global_costmap/costmap", rclcpp::QoS(rclcpp::KeepLast(5)),
+  [&](const nav_msgs::msg::OccupancyGrid::SharedPtr msg) {
+    mapSubscriber(msg, navigator, outfile);
+  });
+  
+ 
   // spin in place of 90 degrees (default parameter)
   navigator.Spin();
   while (!navigator.IsTaskComplete()) {
-    // busy waiting for task to be completed
-  
-    // for (const auto &waypoint : waypoints) {
-    //   geometry_msgs::msg::Pose::SharedPtr goal_pos =
-    //       std::make_shared<geometry_msgs::msg::Pose>();
-    //   *goal_pos = waypoint;
-    //   navigator.GoToPose(goal_pos);
+      rclcpp::spin_some(node);
+
   }
-  char resolved_path[PATH_MAX]; 
-  realpath("../", resolved_path); 
-// Create a relative path to output to
-  const std::string relative_path = "/src/finalproject/src/txtFolders/OutputCOSTMAPTYPE.txt";
 
-  std::string str(resolved_path);
-
-  std::ofstream outfile(str+relative_path);
   
   for (std::size_t i = 0; i < waypoints.size(); ++i) 
   {
-    geometry_msgs::msg::Pose::SharedPtr goal_pos = 
-        std::make_shared<geometry_msgs::msg::Pose>();
+    geometry_msgs::msg::Pose::SharedPtr goal_pos = std::make_shared<geometry_msgs::msg::Pose>();
     *goal_pos = waypoints[i];
     navigator.GoToPose(goal_pos);
     
-       while (!navigator.IsTaskComplete()) 
-       {
-        auto globalcostmap = navigator.GetGlobalCostmap();
-        for (unsigned int i = 0; i < globalcostmap->metadata.size_x; ++i) 
-        {
-          for (unsigned int j = 0; j < globalcostmap->metadata.size_y; ++j) 
-          {
-            outfile << static_cast<int>(globalcostmap->data[i * globalcostmap->metadata.size_y + j])
-                  << " ";
-          }
-            outfile << std::endl;
-        }
-
-
-    // busy waiting for the task to be completed
-        // std::vector<std::pair<int, int>> inconsistent_cells = CompareCostmaps(navigator);
-
-        // if (inconsistent_cells.empty()) {
-        // // Vector is empty; there are no inconsistencies
-        // continue;
-        // } else {
-        //     // Vector is not empty; there are inconsistencies
-        //     auto global_costmap = navigator.GetGlobalCostmap();
-        //     geometry_msgs::msg::PoseStamped inconsistent_pose;
-        //     for (const auto& inconsistent_cell : inconsistent_cells) 
-        //     {
-        //       inconsistent_pose = GlobalCostmapIndicesToPose(inconsistent_cell.first, inconsistent_cell.second, global_costmap);
-
-        //     }
-        //     RCLCPP_ERROR(navigator.get_logger(), "Unknown Obstacle at position: (x: %.2f, y: %.2f, z: %.2f)",
-        //                                         inconsistent_pose.pose.position.x,
-        //                                         inconsistent_pose.pose.position.y,
-        //                                         inconsistent_pose.pose.position.z);
-        //     break;
-
-        // }           
+   while (!navigator.IsTaskComplete()) 
+   {
+      rclcpp::spin_some(node);
         
       }
   }
   
-      
-
-  // if (navigator.FollowWaypoints(waypoints)) {
-  //   RCLCPP_INFO(navigator.get_logger(),
-  //               "Successfully sent FollowWaypoints request");
-  // } else {
-  //   RCLCPP_ERROR(navigator.get_logger(),
-  //                "Failed to send FollowWaypoints request");
-  // }
-
-  // complete here...
 
   rclcpp::shutdown(); // shutdown ROS
+  outfile.close();
   return 0;
 
 }
