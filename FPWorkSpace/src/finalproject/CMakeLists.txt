@@ -28,8 +28,8 @@ find_package(action_msgs REQUIRED)
 # Add other dependencies here, e.g. <your_dependency>
 
 # Create the gpt executable
-add_executable(gpt src/gpt.cpp)
-add_executable(costmap_sus src/costmap_sus)
+add_executable(gpt src/otherWorthyButUnfinishedSolutions/gpt.cpp)
+add_executable(costmap_sus src/otherWorthyButUnfinishedSolutions/costmap_sus)
 add_library(navigator src/navigation.cpp)
 add_executable(myTestNavigator src/myTestNavigator.cpp src/navigation.cpp)
 

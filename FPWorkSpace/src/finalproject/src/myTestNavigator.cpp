@@ -187,15 +187,6 @@ int main(int argc, char **argv)
   navigator.WaitUntilNav2Active();
   
   auto node = rclcpp::Node::make_shared("map_subscriber");
-  
-//   char resolved_path[PATH_MAX]; 
-//   realpath("../", resolved_path); 
-// // Create a relative path to output to
-//   const std::string relative_path = "/src/finalproject/src/txtFolders/GlobalCostMapOutput.txt";
-
-//   std::string str(resolved_path);
-
-//   std::ofstream outfile(str+relative_path);
 
   auto sub = node->create_subscription<nav_msgs::msg::OccupancyGrid>(
   "/global_costmap/costmap", rclcpp::QoS(rclcpp::KeepLast(5)),
