@@ -18,18 +18,20 @@ std::string Getrealpath()
 }
   
 // Create a relative path to output to
-  const std::string relative_path = "/src/finalproject/src/txtFolders/GlobalCostMapOutput.txt";
+  // const std::string relative_path = "/src/finalproject/src/txtFolders/GlobalCostMapOutput.txt";
 
-  std::string str(Getrealpath());
+  // std::string str(Getrealpath());
 
-  std::ofstream outfile(str+relative_path);
+  // std::ofstream outfile(str+relative_path);
+
+bool stopMessages = false;
 
 nav_msgs::msg::OccupancyGrid::SharedPtr firstGlobalCostMapMsg;
 std::chrono::system_clock::time_point last_update_time;
 std::vector<std::pair<int, int>> CompareCostmaps(const nav_msgs::msg::OccupancyGrid::SharedPtr& latest_costmap, const nav_msgs::msg::OccupancyGrid::SharedPtr& first_costmap, Navigator& navy) ;
 geometry_msgs::msg::PoseStamped GlobalCostmapIndicesToPose(int row, int col, const nav_msgs::msg::OccupancyGrid::SharedPtr& costmap);
 
-void mapSubscriber(const nav_msgs::msg::OccupancyGrid::SharedPtr msg, Navigator& navy, std::ofstream &outfile) {
+void mapSubscriber(const nav_msgs::msg::OccupancyGrid::SharedPtr msg, Navigator& navy){//, std::ofstream &outfile) {
 
     if (!firstGlobalCostMapMsg) {
         firstGlobalCostMapMsg = msg;
@@ -53,16 +55,16 @@ void mapSubscriber(const nav_msgs::msg::OccupancyGrid::SharedPtr msg, Navigator&
         }
 
         // Print the map data row by row
-        outfile << msg->info.height << " height fr\n";
-        outfile << msg->info.width << " width fr\n";
-        outfile << msg->info.resolution << " resolution fr\n";
-        for (unsigned int row = 0; row < msg->info.height; row++) {
-          for (unsigned int col = 0; col < msg->info.width; col++) {
-            outfile << static_cast<int>(msg->data[row * msg->info.width + col])
-                    << " ";
-          }
-          outfile << std::endl;
-        }
+        // outfile << msg->info.height << " height fr\n";
+        // outfile << msg->info.width << " width fr\n";
+        // outfile << msg->info.resolution << " resolution fr\n";
+        // for (unsigned int row = 0; row < msg->info.height; row++) {
+        //   for (unsigned int col = 0; col < msg->info.width; col++) {
+        //     outfile << static_cast<int>(msg->data[row * msg->info.width + col])
+        //             << " ";
+        //   }
+        //   outfile << std::endl;
+        // }
       }
                 
     }
@@ -99,10 +101,10 @@ std::vector<std::pair<int, int>> CompareCostmaps(const nav_msgs::msg::OccupancyG
 
         if (value_diff > threshold) {
           inconsistent_cells.emplace_back(row, col);
-          outfile << "New: " <<  static_cast<int>(latest_costmap->data[index]) << ", Old: " << static_cast<int>(first_costmap->data[index]) << "\n";
-
+          //outfile << "New: " <<  static_cast<int>(latest_costmap->data[index]) << ", Old: " << static_cast<int>(first_costmap->data[index]) << "\n";
           // Stop processing if we have found 5 or more inconsistent cells
           if (inconsistent_cells.size() >= 5) {
+            stopMessages = true;
             return inconsistent_cells;
           }
         }
@@ -191,7 +193,7 @@ int main(int argc, char **argv)
   auto sub = node->create_subscription<nav_msgs::msg::OccupancyGrid>(
   "/global_costmap/costmap", rclcpp::QoS(rclcpp::KeepLast(5)),
   [&](const nav_msgs::msg::OccupancyGrid::SharedPtr msg) {
-    mapSubscriber(msg, navigator, outfile);
+    mapSubscriber(msg, navigator);//, outfile);
   });
   
  
@@ -209,16 +211,17 @@ int main(int argc, char **argv)
     *goal_pos = waypoints[i];
     navigator.GoToPose(goal_pos);
     
-   while (!navigator.IsTaskComplete()) 
+   while (!navigator.IsTaskComplete() && stopMessages!= true) 
    {
       rclcpp::spin_some(node);
         
       }
+    if(stopMessages == true) { break; }
+
   }
   
-
   rclcpp::shutdown(); // shutdown ROS
-  outfile.close();
+  //outfile.close();
   return 0;
 
 }
