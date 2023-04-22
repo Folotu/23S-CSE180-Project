@@ -22,15 +22,12 @@ double total_y = 0.0;
 int counter = 0;
 
 // Create a relative path to output to
-const std::string relative_path =
-    "/FPWorkSpace/src/finalproject/src/txtFolders/GlobalCostMapOutput.txt";
-
-std::string str(Getrealpath());
-
 // const std::string relative_path =
-//     "/home/user/FinalProjFold/FPWorkSpace/src/finalproject/src/txtFolders";
-// std::ofstream outfile(relative_path);
-std::ofstream outfile(str + relative_path);
+//     "/FPWorkSpace/src/finalproject/src/txtFolders/GlobalCostMapOutput.txt";
+
+// std::string str(Getrealpath());
+
+// std::ofstream outfile(str + relative_path);
 
 nav_msgs::msg::OccupancyGrid::SharedPtr firstGlobalCostMapMsg;
 std::chrono::system_clock::time_point last_update_time;
@@ -42,7 +39,7 @@ geometry_msgs::msg::PoseStamped GlobalCostmapIndicesToPose(
     int row, int col, const nav_msgs::msg::OccupancyGrid::SharedPtr &costmap);
 
 void mapSubscriber(const nav_msgs::msg::OccupancyGrid::SharedPtr msg,
-                   Navigator &navy, std::ofstream &outfile) {
+                   Navigator &navy) { //, std::ofstream &outfile) {
 
   if (!firstGlobalCostMapMsg) {
     firstGlobalCostMapMsg = msg;
@@ -51,7 +48,7 @@ void mapSubscriber(const nav_msgs::msg::OccupancyGrid::SharedPtr msg,
     // Check if the map is updated
     auto current_time = std::chrono::system_clock::now();
     auto time_since_last_update = current_time - last_update_time;
-    const auto update_threshold = std::chrono::seconds(5); // adjust as needed
+    const auto update_threshold = std::chrono::seconds(2); // adjust as needed
 
     if (time_since_last_update > update_threshold) {
       last_update_time = current_time;
@@ -79,16 +76,17 @@ void mapSubscriber(const nav_msgs::msg::OccupancyGrid::SharedPtr msg,
         }
       }
       // Print the map data row by row
-      outfile << msg->info.height << " height fr\n";
-      outfile << msg->info.width << " width fr\n";
-      outfile << msg->info.resolution << " resolution fr\n";
-      for (unsigned int row = 0; row < msg->info.height; row++) {
-        for (unsigned int col = 0; col < msg->info.width; col++) {
-          outfile << static_cast<int>(msg->data[row * msg->info.width + col])
-                  << " ";
-        }
-        outfile << std::endl;
-      }
+      //   outfile << msg->info.height << " height fr\n";
+      //   outfile << msg->info.width << " width fr\n";
+      //   outfile << msg->info.resolution << " resolution fr\n";
+      //   for (unsigned int row = 0; row < msg->info.height; row++) {
+      //     for (unsigned int col = 0; col < msg->info.width; col++) {
+      //       outfile << static_cast<int>(msg->data[row * msg->info.width +
+      //       col])
+      //               << " ";
+      //     }
+      //     outfile << std::endl;
+      //   }
     }
   }
 }
@@ -116,7 +114,7 @@ CompareCostmaps(const nav_msgs::msg::OccupancyGrid::SharedPtr &latest_costmap,
   }
 
   // Define a threshold for the absolute difference between cell values
-  int threshold = 10; // Adjust this value based on your requirements
+  int threshold = 8; // Adjust this value based on your requirements
 
   for (unsigned int row = 0; row < latest_costmap->info.height; ++row) {
     for (unsigned int col = 0; col < latest_costmap->info.width; ++col) {
@@ -132,12 +130,11 @@ CompareCostmaps(const nav_msgs::msg::OccupancyGrid::SharedPtr &latest_costmap,
       int new_value = static_cast<int>(latest_costmap->data[index]);
       int value_diff = std::abs(new_value - old_value);
 
-      if (value_diff > threshold && new_value > old_value &&
-          (new_value == 100 || new_value == 99)) {
+      if (value_diff > threshold && new_value > old_value && new_value == 100) {
         inconsistent_cells.emplace_back(row, col);
-        outfile << "New: " << static_cast<int>(latest_costmap->data[index])
-                << ", Old: " << static_cast<int>(first_costmap->data[index])
-                << "\n";
+        // outfile << "New: " << static_cast<int>(latest_costmap->data[index])
+        //         << ", Old: " << static_cast<int>(first_costmap->data[index])
+        //         << "\n";
 
         // Stop processing if we have found 5 or more inconsistent cells
         if (inconsistent_cells.size() >= 5) {
@@ -183,12 +180,12 @@ int main(int argc, char **argv) {
   pose.position.y = 1.8;
   pose.orientation.w = 1;
   waypoints.push_back(pose);
-  //       {2, 1, 0, 0, 0, 0, 1},    // 2. Upper left corner
+  //       {1.7, 1, 0, 0, 0, 0, 1},    // 2. Upper left corner
   pose.position.x = 1.7;
   pose.position.y = 1;
   pose.orientation.w = 1;
   waypoints.push_back(pose);
-  //       {2, -0.05, 0, 0, 0, 0, 1},     // 3. Top middle
+  //       {1.7, -0.05, 0, 0, 0, 0, 1},     // 3. Top middle
   pose.position.x = 1.7;
   pose.position.y = -0.05;
   pose.orientation.w = 1;
@@ -208,7 +205,7 @@ int main(int argc, char **argv) {
   pose.position.y = -1.7;
   pose.orientation.w = 1;
   waypoints.push_back(pose);
-  //       {-2, -0.5, 0, 0, 0, 0, 1},     // 6. Lower right corner
+  //       {-1.7, -0.5, 0, 0, 0, 0, 1},     // 6. Lower right corner
   pose.position.x = -1.7;
   pose.position.y = -0.5;
   pose.orientation.w = 1;
@@ -234,10 +231,9 @@ int main(int argc, char **argv) {
   auto sub = node->create_subscription<nav_msgs::msg::OccupancyGrid>(
       "/global_costmap/costmap", rclcpp::QoS(rclcpp::KeepLast(5)),
       [&](const nav_msgs::msg::OccupancyGrid::SharedPtr msg) {
-        mapSubscriber(msg, navigator, outfile);
+        mapSubscriber(msg, navigator); //, outfile);
       });
 
-  std::cout << str << std::endl;
   // spin in place of 90 degrees (default parameter)
   navigator.Spin();
   while (!navigator.IsTaskComplete()) {
@@ -253,9 +249,11 @@ int main(int argc, char **argv) {
     while (!navigator.IsTaskComplete()) {
       rclcpp::spin_some(node);
     }
+
+    std::this_thread::sleep_for(std::chrono::seconds(2));
   }
 
   rclcpp::shutdown(); // shutdown ROS
-  outfile.close();
+  // outfile.close();
   return 0;
 }
